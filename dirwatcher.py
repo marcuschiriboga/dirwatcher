@@ -12,16 +12,15 @@ import signal
 import time
 import logging
 
-logging.basicConfig(filename='example.log',
-                    filemode='w',
-                    level=logging.INFO,
-                    format='%(asctime)s %(message)s',
-                    datefmt='%m/%d/%Y %I:%M:%S %p')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(message)s',
+    datefmt='%m/%d/%Y %I:%M:%S %p')
 logger = logging.getLogger(__name__)
 logger.setLevel("INFO")
 
 """this lets me store what I have already looked at in memory,"""
-"""I wont need to re-read sections of files I have already read."""
+"""so I wont need to re-read sections of files I have already read."""
 memory_log = {}
 
 
@@ -74,28 +73,25 @@ def detect_removed_files(files):
     return
 
 
-def watch_directory(path, magic_string, extension, interval):
+def watch_directory(path, magic_string, extension):
     """arrange the other functions to set the memory-log up before reading"""
     """send exception for errors"""
     try:
         files = os.listdir(path)
-
+        if not files:
+            logger.info(f"the directory at {path} is empty")
         if files != list(memory_log.keys()):
             """if files is different from the memory"""
             logger.info("file change or start up")
             detect_new_files(files),
             detect_removed_files(files),
-        if not memory_log:
-            """prevent key errors"""
-            for item in files:
-                search_for_magic(item, 0, magic_string, path)
-        else:
-            for item in files:
-                """look at each file, starting where we left off"""
+        for item in files:
+            """look at each file, starting where we left off"""
+            if extension == os.path.splitext(item)[1]:
                 search_for_magic(
                     item, max(memory_log[item]), magic_string, path)
     except FileNotFoundError:
-        logger.info("--nothing is there--\n--did you make typo?--")
+        logger.info(f"directory not found at {path}")
     except KeyError:
         logger.info("key error")
     return
@@ -108,11 +104,11 @@ def create_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('-dir', '--directory',
                         help='destination directory to look for files')
-    parser.add_argument("-ext", '--extension',
+    parser.add_argument("-ext", '--extension', default=".txt",
                         help='file extrension to filter on')
     parser.add_argument('-maj', '--magic',
                         help='a search phrase')
-    parser.add_argument('-int', '--interval',
+    parser.add_argument('-int', '--interval', default="1",
                         help="polling interval")
     return parser
 
@@ -129,8 +125,7 @@ class signal_handler:
 
     def exit_gracefully(self, signum, frame):
         self.kill_now = True
-        print("bye bye")
-        logger.info("exited from signal")
+        logger.info(f"exited from signal {signum}")
         return
 
 
@@ -139,15 +134,16 @@ def main(args):
     looper = signal_handler()
     if not args:
         parser.print_usage()
+        """program asks for no sys.exit(1),
+        I assume they ment in context of signal handlers"""
         sys.exit(1)
     parsed_args = parser.parse_args(args)
     magic_phrase = parsed_args.magic
-    logger.info("start up")
-    print("running, check the log for more info")
+    logger.info(f"now looking for {magic_phrase} in {parsed_args.directory}")
     while not looper.kill_now:
         time.sleep(int(parsed_args.interval))
         watch_directory(parsed_args.directory, magic_phrase,
-                        parsed_args.extension, parsed_args.interval)
+                        parsed_args.extension)
     return
 
 
