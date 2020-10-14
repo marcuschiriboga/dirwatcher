@@ -28,26 +28,14 @@ def search_for_magic(filename, start_line, magic_string, path):
     """look through files one line at a time for the magic phrase."""
     """on match, log"""
     try:
-        with open(path + filename) as f:
+        with open(os.path.join(path, filename)) as f:
             lines = f.readlines()
-            match = False
-            if start_line:
-                match = True
             for line in range(len(lines)):
                 if line > start_line:
                     if magic_string in lines[line]:
-                        match = True
-                        if filename not in memory_log.keys():
-                            memory_log.update({filename: {line}})
-                            logger.info("match: " + path + filename +
-                                        " at line " + str(line))
-                        else:
-                            memory_log[filename].add(line)
-                            logger.info("match: " + path + filename +
-                                        " at line " + str(line))
-            if match:
-                # if I need to clear out -1 from the log memory
-                pass
+                        memory_log[filename].add(line)
+                        logger.info("match: " + path + filename +
+                                    " at line " + str(line+1))
     except FileNotFoundError:
         logger.info("file not found")
     except IsADirectoryError:
@@ -78,11 +66,10 @@ def watch_directory(path, magic_string, extension):
     """send exception for errors"""
     try:
         files = os.listdir(path)
-        if not files:
-            logger.info(f"the directory at {path} is empty")
+        # if not files:
+        #     logger.info(f"the directory at {path} is empty")
         if files != list(memory_log.keys()):
             """if files is different from the memory"""
-            logger.info("file change or start up")
             detect_new_files(files),
             detect_removed_files(files),
         for item in files:
@@ -102,13 +89,13 @@ def create_parser():
     """ to watch(dir), file extension to filter on(ext),
     polling interval(int) and magic text(magic)"""
     parser = argparse.ArgumentParser()
-    parser.add_argument('-dir', '--directory',
+    parser.add_argument('dir',
                         help='destination directory to look for files')
-    parser.add_argument("-ext", '--extension', default=".txt",
-                        help='file extrension to filter on')
-    parser.add_argument('-maj', '--magic',
+    parser.add_argument('magic',
                         help='a search phrase')
-    parser.add_argument('-int', '--interval', default="1",
+    parser.add_argument("-e", '--extension', default=".txt",
+                        help='file extrension to filter on')
+    parser.add_argument('-i', '--interval', default="1",
                         help="polling interval")
     return parser
 
@@ -125,7 +112,7 @@ class signal_handler:
 
     def exit_gracefully(self, signum, frame):
         self.kill_now = True
-        logger.info(f"exited from signal {signum}")
+        logger.info(f"exited from signal {signal.Signals(signum).name}")
         return
 
 
@@ -139,11 +126,16 @@ def main(args):
         sys.exit(1)
     parsed_args = parser.parse_args(args)
     magic_phrase = parsed_args.magic
-    logger.info(f"now looking for {magic_phrase} in {parsed_args.directory}")
+    start_time = time.time()
+    logger.info(
+        f"starting dirwatcher.py for {magic_phrase} in {parsed_args.dir}")
     while not looper.kill_now:
         time.sleep(int(parsed_args.interval))
-        watch_directory(parsed_args.directory, magic_phrase,
+        watch_directory(parsed_args.dir, magic_phrase,
                         parsed_args.extension)
+    end_time = time.time()
+    logger.info("dirwatcher.py stopped. it ran for: " +
+                str(int(end_time - start_time))+" seconds")
     return
 
 
