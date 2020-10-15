@@ -34,7 +34,7 @@ def search_for_magic(filename, start_line, magic_string, path):
                 if line > start_line:
                     if magic_string in lines[line]:
                         memory_log[filename].add(line)
-                        logger.info("match: " + path + filename +
+                        logger.info("match: " + path + "/"+filename +
                                     " at line " + str(line+1))
     except FileNotFoundError:
         logger.info("file not found")
@@ -43,21 +43,23 @@ def search_for_magic(filename, start_line, magic_string, path):
     return
 
 
-def detect_new_files(files):
+def detect_new_files(files, extension):
     # compare the new loop with the state for changes
     for file in files:
-        if file not in list(memory_log.keys()):
-            logger.info(f'{file} added')
-            memory_log.update({file: {-1}})
+        if extension == os.path.splitext(file)[1]:
+            if file not in list(memory_log.keys()):
+                logger.info(f'{file} added')
+                memory_log.update({file: {-1}})
     return
 
 
-def detect_removed_files(files):
+def detect_removed_files(files, extension):
     # compare the state with the new loop for changes
-    for _ in list(memory_log.keys()):
-        if _ not in files:
-            logger.info(f'{_} removed')
-            memory_log.pop(_)
+    for f in list(memory_log.keys()):
+        if extension == os.path.splitext(f)[1]:
+            if f not in files:
+                logger.info(f'{f} removed')
+                memory_log.pop(f)
     return
 
 
@@ -70,8 +72,8 @@ def watch_directory(path, magic_string, extension):
         #     logger.info(f"the directory at {path} is empty")
         if files != list(memory_log.keys()):
             """if files is different from the memory"""
-            detect_new_files(files),
-            detect_removed_files(files),
+            detect_new_files(files, extension),
+            detect_removed_files(files, extension),
         for item in files:
             """look at each file, starting where we left off"""
             if extension == os.path.splitext(item)[1]:
@@ -129,12 +131,14 @@ def main(args):
     start_time = time.time()
     logger.info(
         f"starting dirwatcher.py for {magic_phrase} in {parsed_args.dir}")
+    logger.info("------------------------------------------------------")
     while not looper.kill_now:
         time.sleep(int(parsed_args.interval))
         watch_directory(parsed_args.dir, magic_phrase,
                         parsed_args.extension)
     end_time = time.time()
-    logger.info("dirwatcher.py stopped. it ran for: " +
+    logger.info("------------------------------------------------------")
+    logger.info("dirwatcher.py stopped. It ran for: " +
                 str(int(end_time - start_time))+" seconds")
     return
 
